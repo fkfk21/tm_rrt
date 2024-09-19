@@ -1,6 +1,8 @@
 
 #include "tm_rrt.h"
 
+#include <geometry_msgs/msg/point_stamped.hpp>
+
 //    ***** Task *****    //
 
 Task::Task() {
@@ -369,12 +371,21 @@ void RRTcluster::cout_less() {
 
 //    ***** TM_RRTplanner *****    //
 
-TM_RRTplanner::TM_RRTplanner(std::string path_to_node_directory, std::string domain_file_name) : random_generator(std::random_device()()) {
+TM_RRTplanner::TM_RRTplanner(std::string path_to_node_directory, std::string domain_file_name) 
+    : Node("tm_rrt_planner"), random_generator(std::random_device()()) {
 
-    image_transport::ImageTransport it(nh);
+    // initialize ROS Node
+    marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("tm_rrt_plot", 10);
+    // plan_pub = this->create_publisher<geometry_msgs::msg::PoseArray>("tm_rrt_plan", 1);
+    plan_pub_ = this->create_publisher<std_msgs::msg::String>("tm_rrt_plan", 1);
+
+    image_transport::ImageTransport it(this->shared_from_this());
     image_pub = it.advertise("image_plan", 1);
 
-    plan_pub = nh.advertise<std_msgs::String>("tm_rrt_plan", 1);
+    // tf2 ros
+    tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(this->shared_from_this());
 
     x = 0;
     y = 0;
@@ -1406,19 +1417,18 @@ Pose3d TM_RRTplanner::estimate_new_pose(Pose3d p, Step3d s) {
 
 void TM_RRTplanner::rviz_plot_plan(std::vector< PlanStepTM > vec) {
 
-    geometry_msgs::Point p;
-
-    visualization_msgs::Marker markers;
+    geometry_msgs::msg::Point p;
+    visualization_msgs::msg::Marker markers;
 
     markers.header.frame_id = "/base_link"; //"/map";
-    markers.header.stamp = ros::Time::now();
+    markers.header.stamp = this->get_clock()->now();
     markers.ns = "plan";
-    markers.action = visualization_msgs::Marker::ADD;
+    markers.action = visualization_msgs::msg::Marker::ADD;
     markers.pose.orientation.w = 1.0;
 
     markers.id = 0;
 
-    markers.type = visualization_msgs::Marker::POINTS;
+    markers.type = visualization_msgs::msg::Marker::POINTS;
 
     // POINTS markers use x and y scale for width/height respectively
     markers.scale.x = 0.1;
@@ -1439,16 +1449,16 @@ void TM_RRTplanner::rviz_plot_plan(std::vector< PlanStepTM > vec) {
 
     }
 
-    marker_pub.publish(markers);
+    marker_pub_->publish(std::move(markers));
 }
 
 std::vector< PlanStepTM > TM_RRTplanner::transform_plan(std::vector< PlanStepTM > vec, std::string in_frame, std::string out_frame) {
 
     std::vector< PlanStepTM > res;
 
-    geometry_msgs::PointStamped p_in, p_out;
+    geometry_msgs::msg::PointStamped p_in, p_out;
 
-    if (!laser_listener.waitForTransform(in_frame, out_frame, ros::Time(0), ros::Duration(0.01))) {
+    if (!tf_buffer_->canTransform(in_frame, out_frame, tf2::TimePointZero, std::chrono::milliseconds(10))) {
         return res;
     }
 
@@ -1459,7 +1469,8 @@ std::vector< PlanStepTM > TM_RRTplanner::transform_plan(std::vector< PlanStepTM 
         p_in.point.y = vec[i].state.pose.y;
         p_in.point.z = vec[i].state.pose.w;
 
-        laser_listener.transformPoint(out_frame, ros::Time(0), p_in, in_frame, p_out);
+        // laser_listener.transformPoint(out_frame, ros::Time(0), p_in, in_frame, p_out);
+        p_out = tf_buffer_->transform(p_in, out_frame, tf2::durationFromSec(0.01));
 
         State app(vec[i].state.var, Pose3d(p_out.point.x, p_out.point.y, p_out.point.z));
 
@@ -1470,7 +1481,8 @@ std::vector< PlanStepTM > TM_RRTplanner::transform_plan(std::vector< PlanStepTM 
 
 void TM_RRTplanner::rviz_image_plan() {
 
-    sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", image).toImageMsg();
+    sensor_msgs::msg::Image::SharedPtr msg = 
+        cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", image).toImageMsg();
 
     image_pub.publish(msg);
 }
@@ -1478,7 +1490,7 @@ void TM_RRTplanner::rviz_image_plan() {
 
 void TM_RRTplanner::ros_publish_plan() {
 
-    std_msgs::String msg;
+    std_msgs::msg::String msg;
 
     std::stringstream ss;
     ss<<"( ";
@@ -1490,7 +1502,7 @@ void TM_RRTplanner::ros_publish_plan() {
     ss<<")";
     
     msg.data = ss.str();
-    plan_pub.publish(msg);
+    plan_pub_->publish(std::move(msg));
 
     std::cout<<"PLAN:"<<std::endl;
     std::cout<<ss.str()<<std::endl;

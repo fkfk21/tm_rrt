@@ -6,38 +6,46 @@
 #include <time.h>
 #include <fstream>
 
-#include "ros/ros.h"
-#include "std_msgs/String.h"
-#include "std_msgs/Float32.h"
-#include "std_msgs/UInt32.h"
-
-//#include "opencv/cv.h"
 #include "opencv2/opencv.hpp"
 #include "opencv2/ml/ml.hpp"
 #include <random>
 #include <execinfo.h>
 #include <signal.h>
-#include <ros/package.h>
 
+#include <rclcpp/rclcpp.hpp>
+#include <std_msgs/msg/string.hpp>
+#include <std_msgs/msg/float32.hpp>
+#include <std_msgs/msg/u_int32.hpp>
 
-#include "sensor_msgs/Joy.h"
-#include "sensor_msgs/LaserScan.h"
+// OpenCV ライブラリ
+#include "opencv2/opencv.hpp"
+#include "opencv2/ml/ml.hpp"
+#include <random>
+#include <execinfo.h>
+#include <signal.h>
+#include <ament_index_cpp/get_package_share_directory.hpp>
+
+#include <sensor_msgs/msg/joy.hpp>
+#include <sensor_msgs/msg/laser_scan.hpp>
+
+// OpenCV ライブラリ
+#include "opencv2/imgproc/imgproc.hpp"
+#include "opencv2/highgui/highgui.hpp"
+
+// 画像処理関連
+#include <image_transport/image_transport.hpp>
+#include <cv_bridge/cv_bridge.h>
+
+#include <visualization_msgs/msg/marker.hpp>
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/transform_broadcaster.h>
+#include <geometry_msgs/msg/transform_stamped.hpp>
+#include <geometry_msgs/msg/pose_array.hpp>
 
 #include "utils/seed_geometry.h"
 #include "utils/seed_debug.h"
 #include "utils/seed_time.h"
-
-#include <string>
-
-#include "opencv2/imgproc/imgproc.hpp"
-#include "opencv2/highgui/highgui.hpp"
-
-#include <image_transport/image_transport.h>
-#include <cv_bridge/cv_bridge.h>
-
-#include <visualization_msgs/Marker.h>
-#include <tf/transform_listener.h>
-#include <tf/transform_broadcaster.h>
 
 #include "swipl_interface/swipl_interface.h"
 
@@ -284,7 +292,7 @@ public:
     int number_of_clusters;
 };
 
-class TM_RRTplanner {
+class TM_RRTplanner : public rclcpp::Node {
 public:
     
     TM_RRTplanner(std::string path_to_node_directory, std::string domain_file_name) ;
@@ -568,23 +576,30 @@ public:
 
     std::mt19937 random_generator; //Standard mersenne_twister_engine seeded with rd()
     
-    ros::NodeHandle nh;
-    ros::Publisher marker_pub;
+    // ros::NodeHandle nh;
+    // ros::Publisher marker_pub;
+    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub_;
     image_transport::Publisher image_pub;
 
     //simple plan publishing
-    ros::Publisher plan_pub;
+    // ros::Publisher plan_pub;
+    // rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr plan_pub;
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr plan_pub_;
     
 
-    tf::TransformListener laser_listener;
     std::vector< PlanStepTM > plan_odo_frame;
     
 
-    tf::TransformListener target_listener;
-    tf::TransformBroadcaster target_broadcaster;
+    // tf::TransformListener laser_listener;
+    std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+    std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+    std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
+    // tf::TransformListener target_listener;
+    // tf::TransformBroadcaster target_broadcaster;
     
 
-    tf::StampedTransform transform;
+    // tf::StampedTransform transform;
+    geometry_msgs::msg::TransformStamped transform;
 
     //simple scene simulation
     std::unordered_map<std::string, Object2d> simulation;
