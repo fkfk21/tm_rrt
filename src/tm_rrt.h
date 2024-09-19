@@ -295,7 +295,7 @@ public:
 class TM_RRTplanner : public rclcpp::Node {
 public:
     
-    TM_RRTplanner(std::string path_to_node_directory, std::string domain_file_name) ;
+    TM_RRTplanner(std::string path_to_node_directory);
 
     void set_goal_state(std::unordered_map<std::string, bool> &tS_goal, Pose3d &bS_goal);
 

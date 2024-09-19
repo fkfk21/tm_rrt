@@ -370,8 +370,19 @@ void RRTcluster::cout_less() {
 
 
 //    ***** TM_RRTplanner *****    //
+template <typename T>
+T get_ros_param(const std::shared_ptr<rclcpp::Node>& node, std::string param_name, T default_value) {
+    T param_value;
+    if (!node->get_parameter(param_name, param_value)) {
+        RCLCPP_WARN(node->get_logger(), "WARNING: parameter %s not set, default value \"%s\" will be used", param_name.c_str(), std::to_string(default_value).c_str());
+        return default_value;
+    }
+    return param_value;
+}
 
-TM_RRTplanner::TM_RRTplanner(std::string path_to_node_directory, std::string domain_file_name) 
+
+
+TM_RRTplanner::TM_RRTplanner(std::string path_to_node_directory) 
     : Node("tm_rrt_planner"), random_generator(std::random_device()()) {
 
     // initialize ROS Node
@@ -387,6 +398,58 @@ TM_RRTplanner::TM_RRTplanner(std::string path_to_node_directory, std::string dom
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
     tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(this->shared_from_this());
 
+
+    // declare parameters
+    this->declare_parameter<std::string>("/tm_rrt/domain_file", "");
+    //get debug value 
+    this->declare_parameter<bool>("/tm_rrt/debug", false);
+    //get planner type (simple, divided)
+    this->declare_parameter<std::string>("/tm_rrt/planner_type", "simple");
+    //get task selector (best = 0, uniform = 1, montecarlo = 2)
+    this->declare_parameter<int>("/tm_rrt/task_selector", 0);
+    //get number of runs for this domain
+    this->declare_parameter<int>("/tm_rrt/number_of_runs", 30);
+    //get timeout for the planner (in seconds)
+    this->declare_parameter<double>("/tm_rrt/planner_timeout", 300.0);
+    //get timeout for the BFS (in seconds)
+    this->declare_parameter<double>("/tm_rrt/BFS_timeout", 2.0);
+    //get horizon of the rrt (in meters)
+    this->declare_parameter<double>("/tm_rrt/RRT_horizon", 5.0);
+    //get TM-RRT parameters
+    this->declare_parameter<double>("/tm_rrt/w_b", 1.0);
+    this->declare_parameter<double>("/tm_rrt/w_t", 5.0);
+    this->declare_parameter<double>("/tm_rrt/path_len", 0.9);
+    //go-to-goal probabilities
+    this->declare_parameter<double>("/tm_rrt/p_s", 0.3);
+    this->declare_parameter<double>("/tm_rrt/p_c", 0.3);
+
+    // this->declare_parameters("/tm_rrt", {
+        // get prameters from ROS
+        // DOMAIN FILE IS NECESSARY
+        // rclcpp::Parameter("domain_file", rclcpp::ParameterValue(std::string("domain.pddl"))),
+        // // get debug value 
+        // rclcpp::Parameter("debug", rclcpp::ParameterValue(false)),
+        // // get planner type (simple, divided)
+        // rclcpp::Parameter("planner_type", rclcpp::ParameterValue(std::string("simple"))),
+        // // get task selector (best = 0, uniform = 1, montecarlo = 2)
+        // rclcpp::Parameter("task_selector", rclcpp::ParameterValue(0)),
+        // // get number of runs for this domain
+        // rclcpp::Parameter("number_of_runs", rclcpp::ParameterValue(30)),
+        // // get timeout for the planner (in seconds)
+        // rclcpp::Parameter("planner_timeout", rclcpp::ParameterValue(300.0)),
+        // // get timeout for the BFS (in seconds)
+        // rclcpp::Parameter("BFS_timeout", rclcpp::ParameterValue(2.0)),
+        // // get horizon of the rrt (in meters)
+        // rclcpp::Parameter("RRT_horizon", rclcpp::ParameterValue(5.0)),
+        // // get TM-RRT parameters
+        // rclcpp::Parameter("w_b", rclcpp::ParameterValue(1.0)),
+        // rclcpp::Parameter("w_t", rclcpp::ParameterValue(5.0)),
+        // rclcpp::Parameter("path_len", rclcpp::ParameterValue(0.9)),
+        // // go-to-goal probabilities
+        // rclcpp::Parameter("p_s", rclcpp::ParameterValue(0.3)),
+        // rclcpp::Parameter("p_c", rclcpp::ParameterValue(0.3))
+    // });
+
     x = 0;
     y = 0;
     yaw = 0;
@@ -400,8 +463,10 @@ TM_RRTplanner::TM_RRTplanner(std::string path_to_node_directory, std::string dom
 
     image = cv::Mat(1000, 1000, CV_8UC3, cv::Scalar(0, 0, 0));
 
+
+    const std::string domain_file = this->get_parameter_or<std::string>("/tm_rrt/domain_file", "");
     swi = new swipl_interface();
-    swi->consult(path_to_node_directory + "/" + domain_file_name);
+    swi->consult(path_to_node_directory + "/" + domain_file);
     
     path_to_directory = path_to_node_directory;
     
