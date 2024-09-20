@@ -1,13 +1,14 @@
 <?xml version="1.0"?>
 <package>
   <name>tm_rrt</name>
-  <version>0.0.0</version>
+  <version>0.1.0</version>
   <description>The tm_rrt package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
   <!-- <maintainer email="jane.doe@example.com">Jane Doe</maintainer> -->
   <maintainer email="hargalaten@todo.todo">hargalaten</maintainer>
+  <maintainer email="fkfk21@todo.todo">fkfk21</maintainer>
 
 
   <license>TODO</license>
@@ -15,19 +16,41 @@
   <!-- Dependencies -->
   <!-- Build tool dependency -->
   <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_auto</buildtool_depend>
+  <buildtool_depend>backward_ros</buildtool_depend>
 
-  <!-- Build, exec, and run dependencies are now unified into 'depend' -->
-  <depend>rclcpp</depend>
-  <depend>rosidl_default_generators</depend>
-  <depend>rosidl_default_runtime</depend>
-  <depend>geometry_msgs</depend>
-  <depend>nav_msgs</depend>
-  <depend>tf2_ros</depend> <!-- tfはtf2_rosに変更 -->
-  <depend>image_transport</depend>
+  <build_depend>rclcpp</build_depend>
+  <build_depend>ament_index_cpp</build_depend>
+  <build_depend>image_transport</build_depend>
+  <build_depend>cv_bridge</build_depend>
+  <build_depend>tf2</build_depend>
+  <build_depend>tf2_ros</build_depend>
+  <build_depend>tf2_geometry_msgs</build_depend>
+  <build_depend>tf2_sensor_msgs</build_depend>
 
-  <!-- Message generation -->
-  <depend>message_generation</depend>
-  <depend>message_runtime</depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>visualization_msgs</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+
+  <!-- sudo apt install ros-humble-backward-ros -->
+
+  <run_depend>rclcpp</run_depend>
+  <run_depend>ament_index_cpp</run_depend>
+  <run_depend>image_transport</run_depend>
+  <run_depend>cv_bridge</run_depend>
+  <run_depend>tf2</run_depend>
+  <run_depend>tf2_ros</run_depend>
+  <run_depend>tf2_geometry_msgs</run_depend>
+  <run_depend>tf2_sensor_msgs</run_depend>
+
+  <run_depend>std_msgs</run_depend>
+  <run_depend>geometry_msgs</run_depend>
+  <run_depend>visualization_msgs</run_depend>
+  <run_depend>sensor_msgs</run_depend>
+
+  <run_depend>launch_ros</run_depend>
+  <run_depend>launch_xml</run_depend>
 
   <!-- Testing -->
   <test_depend>ament_cmake_gtest</test_depend>
@@ -35,6 +58,7 @@
   <!-- Export section -->
   <export>
     <!-- ROS2での他のツールのための情報 -->
+    <build_type>ament_cmake</build_type>
   </export>
 </package>
 
