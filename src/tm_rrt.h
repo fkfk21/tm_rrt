@@ -5,6 +5,7 @@
 #include <math.h>
 #include <time.h>
 #include <fstream>
+#include <filesystem>
 
 #include "opencv2/opencv.hpp"
 #include "opencv2/ml/ml.hpp"
@@ -40,8 +41,10 @@
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/transform_broadcaster.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <geometry_msgs/msg/pose_array.hpp>
+#include <geometry_msgs/msg/point_stamped.hpp>
 
 #include "utils/seed_geometry.h"
 #include "utils/seed_debug.h"
@@ -295,7 +298,9 @@ public:
 class TM_RRTplanner : public rclcpp::Node {
 public:
     
-    TM_RRTplanner(std::string path_to_node_directory);
+    TM_RRTplanner(const std::filesystem::path& path_to_domain_directory);
+
+    void initialize();
 
     void set_goal_state(std::unordered_map<std::string, bool> &tS_goal, Pose3d &bS_goal);
 
@@ -579,11 +584,10 @@ public:
     // ros::NodeHandle nh;
     // ros::Publisher marker_pub;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub_;
-    image_transport::Publisher image_pub;
+    image_transport::Publisher image_pub_;
 
     //simple plan publishing
     // ros::Publisher plan_pub;
-    // rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr plan_pub;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr plan_pub_;
     
 

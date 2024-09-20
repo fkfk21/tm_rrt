@@ -333,7 +333,7 @@ std::vector<PlanStepTM> TM_RRTplanner::plan_TM_RRT(State& start, State& goal, st
                 draw_points(compute_dynamic_obstacles(S_near,void_obs), cv::Scalar(0,100,255) );
                 draw_sample(S_near,S_final,S_random);
                 rviz_image_plan();
-                ros::spinOnce();
+                rclcpp::spin_some(this->shared_from_this());
                 wait_enter(ansi::green + "sample " + std::to_string(n_samples) + " accepted" + ansi::end);
             }
             
@@ -350,7 +350,7 @@ std::vector<PlanStepTM> TM_RRTplanner::plan_TM_RRT(State& start, State& goal, st
                 draw_points(compute_dynamic_obstacles(S_near,void_obs), cv::Scalar(0,100,255) );
                 draw_sample(S_near,S_random);
                 rviz_image_plan();
-                ros::spinOnce();
+                rclcpp::spin_some(this->shared_from_this());
                 wait_enter(ansi::red + "sample " + std::to_string(n_samples) + " rejected" + ansi::end);
             }
         }

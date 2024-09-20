@@ -1,8 +1,6 @@
 
 #include "tm_rrt.h"
 
-#include <geometry_msgs/msg/point_stamped.hpp>
-
 //    ***** Task *****    //
 
 Task::Task() {
@@ -382,7 +380,7 @@ T get_ros_param(const std::shared_ptr<rclcpp::Node>& node, std::string param_nam
 
 
 
-TM_RRTplanner::TM_RRTplanner(std::string path_to_node_directory) 
+TM_RRTplanner::TM_RRTplanner(const std::filesystem::path& path_to_domain_directory) 
     : Node("tm_rrt_planner"), random_generator(std::random_device()()) {
 
     // initialize ROS Node
@@ -390,38 +388,39 @@ TM_RRTplanner::TM_RRTplanner(std::string path_to_node_directory)
     // plan_pub = this->create_publisher<geometry_msgs::msg::PoseArray>("tm_rrt_plan", 1);
     plan_pub_ = this->create_publisher<std_msgs::msg::String>("tm_rrt_plan", 1);
 
-    image_transport::ImageTransport it(this->shared_from_this());
-    image_pub = it.advertise("image_plan", 1);
+    // image_transport::ImageTransport it(this->shared_from_this());
+    image_pub_ = image_transport::create_publisher(this, "image_plan"); 
+    // image_pub_ = it.advertise("image_plan", 1);
 
     // tf2 ros
     tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
-    tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(this->shared_from_this());
+    tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
 
 
     // declare parameters
-    this->declare_parameter<std::string>("/tm_rrt/domain_file", "");
+    this->declare_parameter<std::string>("domain_file", "");
     //get debug value 
-    this->declare_parameter<bool>("/tm_rrt/debug", false);
+    this->declare_parameter<bool>("debug", false);
     //get planner type (simple, divided)
-    this->declare_parameter<std::string>("/tm_rrt/planner_type", "simple");
+    this->declare_parameter<std::string>("planner_type", "simple");
     //get task selector (best = 0, uniform = 1, montecarlo = 2)
-    this->declare_parameter<int>("/tm_rrt/task_selector", 0);
+    this->declare_parameter<int>("task_selector", 0);
     //get number of runs for this domain
-    this->declare_parameter<int>("/tm_rrt/number_of_runs", 30);
+    this->declare_parameter<int>("number_of_runs", 30);
     //get timeout for the planner (in seconds)
-    this->declare_parameter<double>("/tm_rrt/planner_timeout", 300.0);
+    this->declare_parameter<double>("planner_timeout", 300.0);
     //get timeout for the BFS (in seconds)
-    this->declare_parameter<double>("/tm_rrt/BFS_timeout", 2.0);
+    this->declare_parameter<double>("BFS_timeout", 2.0);
     //get horizon of the rrt (in meters)
-    this->declare_parameter<double>("/tm_rrt/RRT_horizon", 5.0);
+    this->declare_parameter<double>("RRT_horizon", 5.0);
     //get TM-RRT parameters
-    this->declare_parameter<double>("/tm_rrt/w_b", 1.0);
-    this->declare_parameter<double>("/tm_rrt/w_t", 5.0);
-    this->declare_parameter<double>("/tm_rrt/path_len", 0.9);
+    this->declare_parameter<double>("w_b", 1.0);
+    this->declare_parameter<double>("w_t", 5.0);
+    this->declare_parameter<double>("path_len", 0.9);
     //go-to-goal probabilities
-    this->declare_parameter<double>("/tm_rrt/p_s", 0.3);
-    this->declare_parameter<double>("/tm_rrt/p_c", 0.3);
+    this->declare_parameter<double>("p_s", 0.3);
+    this->declare_parameter<double>("p_c", 0.3);
 
     // this->declare_parameters("/tm_rrt", {
         // get prameters from ROS
@@ -464,11 +463,17 @@ TM_RRTplanner::TM_RRTplanner(std::string path_to_node_directory)
     image = cv::Mat(1000, 1000, CV_8UC3, cv::Scalar(0, 0, 0));
 
 
-    const std::string domain_file = this->get_parameter_or<std::string>("/tm_rrt/domain_file", "");
+    std::string domain_file;
+    if( !this->get_parameter<std::string>("domain_file", domain_file) ){
+        std::cout<<ansi::red<<"ERROR: planning domain not specified"<<ansi::end<<std::endl;
+    }
+
+    std::cout <<  "Domain file: " << domain_file << std::endl;
+    std::cout <<  "Domain path: " << path_to_domain_directory / domain_file << std::endl;
     swi = new swipl_interface();
-    swi->consult(path_to_node_directory + "/" + domain_file);
+    swi->consult(path_to_domain_directory / domain_file);
     
-    path_to_directory = path_to_node_directory;
+    path_to_directory = path_to_domain_directory; 
     
     curr_plan_step = 0;
     
@@ -480,6 +485,12 @@ TM_RRTplanner::TM_RRTplanner(std::string path_to_node_directory)
     std::cout << "\t var_set size: " << var_set.size() << std::endl;
     std::cout << "\t task_set size: " << task_set.size() << std::endl;
 }
+
+void TM_RRTplanner::initialize() {
+
+}
+
+
 
 void TM_RRTplanner::set_goal_state(std::unordered_map<std::string, bool> &tS_goal, Pose3d &bS_goal) {
     S_goal = State(tS_goal, bS_goal);
@@ -1206,6 +1217,8 @@ Task TM_RRTplanner::task_in_direction(State& s1, State& s2, TaskSelector mode){
             return task_in_direction_UNIF(s1.var, s2.var);
         case TaskSelector::MONTECARLO:
             return task_in_direction_MC(s1.var, s2.var);
+        default:
+            throw std::invalid_argument("Invalid TaskSelector");
     }
 }
 
@@ -1217,6 +1230,8 @@ Task TM_RRTplanner::task_in_direction(std::unordered_map<std::string,bool>& v1, 
             return task_in_direction_UNIF(v1, v2);
         case TaskSelector::MONTECARLO:
             return task_in_direction_MC(v1, v2);
+        default:
+            throw std::invalid_argument("Invalid TaskSelector");
     }
 }
 
@@ -1466,8 +1481,8 @@ Pose3d TM_RRTplanner::estimate_new_pose(Pose3d p, Step3d s) {
 
     double delta_fs_y = std::sin(dtor(p.w)) * s.fs*freq;
     double delta_fs_x = std::cos(dtor(p.w)) * s.fs*freq;
-    double delta_ls_y = std::sin(dtor(p.w + 90)) * s.ls*freq;
-    double delta_ls_x = std::cos(dtor(p.w + 90)) * s.ls*freq;
+    double delta_ls_y = std::sin(dtor(p.w + 90.)) * s.ls*freq;
+    double delta_ls_x = std::cos(dtor(p.w + 90.)) * s.ls*freq;
 
     p_new.x = p.x + delta_fs_x + delta_ls_x;
     p_new.y = p.y + delta_fs_y + delta_ls_y;
@@ -1535,7 +1550,7 @@ std::vector< PlanStepTM > TM_RRTplanner::transform_plan(std::vector< PlanStepTM 
         p_in.point.z = vec[i].state.pose.w;
 
         // laser_listener.transformPoint(out_frame, ros::Time(0), p_in, in_frame, p_out);
-        p_out = tf_buffer_->transform(p_in, out_frame, tf2::durationFromSec(0.01));
+        tf_buffer_->transform(p_in, p_out, out_frame, tf2::durationFromSec(0.01));
 
         State app(vec[i].state.var, Pose3d(p_out.point.x, p_out.point.y, p_out.point.z));
 
@@ -1549,7 +1564,7 @@ void TM_RRTplanner::rviz_image_plan() {
     sensor_msgs::msg::Image::SharedPtr msg = 
         cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", image).toImageMsg();
 
-    image_pub.publish(msg);
+    image_pub_.publish(msg);
 }
 
 
@@ -1697,6 +1712,8 @@ int TM_RRTplanner::draw_cluster_poses(RRTree t, RRTcluster c, std::vector<std::s
 
         return id;
     }
+    std::cerr  << "Cluster not found!" << std::endl;
+    return id;
 }
 
 void TM_RRTplanner::draw_cluster_poses(RRTree t, RRTcluster c, int id) {

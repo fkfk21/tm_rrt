@@ -4,7 +4,11 @@ template <typename T>
 T get_ros_param(const std::shared_ptr<rclcpp::Node>& node, std::string param_name, T default_value) {
     T param_value;
     if (!node->get_parameter(param_name, param_value)) {
-        RCLCPP_WARN(node->get_logger(), "WARNING: parameter %s not set, default value \"%s\" will be used", param_name.c_str(), std::to_string(default_value).c_str());
+        std::string default_value_str;
+        if constexpr (std::is_same<T, std::string>::value) default_value_str = default_value;
+        else default_value_str = std::to_string(default_value);
+        RCLCPP_WARN(node->get_logger(), "WARNING: parameter %s not set, default value \"%s\" will be used",
+                    param_name.c_str(), default_value_str.c_str());
         return default_value;
     }
     return param_value;
@@ -15,37 +19,39 @@ int main(int argc, char** argv) {
     rclcpp::init(argc, argv);
     
     //get prameters from ROS
-    std::string package_path = ament_index_cpp::get_package_share_directory("tm_rrt");
-    auto tmRRT = std::make_shared<TM_RRTplanner>(package_path);
+    const std::filesystem::path package_path = ament_index_cpp::get_package_share_directory("tm_rrt");
+    const auto domain_path = package_path / "domains";
+
+    auto tmRRT = std::make_shared<TM_RRTplanner>(domain_path);
 
     //DOMAIN FILE IS NECESSARY
     std::string param_domain_file;
-    if( !tmRRT->get_parameter<std::string>("/tm_rrt/domain_file", param_domain_file) ){
+    if( !tmRRT->get_parameter<std::string>("domain_file", param_domain_file) ){
         std::cout<<ansi::red<<"ERROR: planning domain not specified"<<ansi::end<<std::endl;
         return 0;
     }
 
     //get debug value 
-    bool param_debug = get_ros_param<bool>(tmRRT, "/tm_rrt/debug",false);
+    bool param_debug = get_ros_param<bool>(tmRRT, "debug",false);
     //get planner type (simple, divided)
-    std::string param_planner_type = get_ros_param<std::string>(tmRRT, "/tm_rrt/planner_type","simple");
+    std::string param_planner_type = get_ros_param<std::string>(tmRRT, "planner_type","simple");
     //get task selector (best = 0, uniform = 1, montecarlo = 2)
-    int param_task_selector = get_ros_param<int>(tmRRT, "/tm_rrt/task_selector",0);
+    int param_task_selector = get_ros_param<int>(tmRRT, "task_selector",0);
     //get number of runs for this domain
-    int param_number_of_runs = get_ros_param<int>(tmRRT, "/tm_rrt/number_of_runs",30);
+    int param_number_of_runs = get_ros_param<int>(tmRRT, "number_of_runs",30);
     //get timeout for the planner (in seconds)
-    double param_planner_timeout = get_ros_param<double>(tmRRT, "/tm_rrt/planner_timeout",300);
+    double param_planner_timeout = get_ros_param<double>(tmRRT, "planner_timeout",300);
     //get timeout for the BFS (in seconds)
-    double param_bsf_timeout = get_ros_param<double>(tmRRT, "/tm_rrt/BFS_timeout",2);
+    double param_bsf_timeout = get_ros_param<double>(tmRRT, "BFS_timeout",2);
     //get horizon of the rrt (in meters)
-    double param_rrt_horizon = get_ros_param<double>(tmRRT, "/tm_rrt/RRT_horizon",5);
+    double param_rrt_horizon = get_ros_param<double>(tmRRT, "RRT_horizon",5);
     //get TM-RRT parameters
-    double param_w_b = get_ros_param<double>(tmRRT, "/tm_rrt/w_b",1.0);
-    double param_w_t = get_ros_param<double>(tmRRT, "/tm_rrt/w_t",5.0);
-    double param_path_len = get_ros_param<double>(tmRRT, "/tm_rrt/path_len",0.9);
+    double param_w_b = get_ros_param<double>(tmRRT, "w_b",1.0);
+    double param_w_t = get_ros_param<double>(tmRRT, "w_t",5.0);
+    double param_path_len = get_ros_param<double>(tmRRT, "path_len",0.9);
     //go-to-goal probabilities
-    double param_p_s = get_ros_param<double>(tmRRT, "/tm_rrt/p_s",0.3);
-    double param_p_c = get_ros_param<double>(tmRRT, "/tm_rrt/p_c",0.3);
+    double param_p_s = get_ros_param<double>(tmRRT, "p_s",0.3);
+    double param_p_c = get_ros_param<double>(tmRRT, "p_c",0.3);
 
     //load symbolic doman and geometric map 
     tmRRT->update_obstacles_from_FILE();
@@ -84,13 +90,16 @@ int main(int argc, char** argv) {
         
         tmRRT->mode = TaskSelector(param_task_selector);
 
-        if(param_planner_type == "tm_rrt") //TM-RRT
-            tmRRT->plan_TM_RRT(tmRRT->S_init, tmRRT->S_goal, tmRRT->plan,
+        if(param_planner_type == "tm_rrt") { //TM-RRT
+            const auto result = tmRRT->plan_TM_RRT(tmRRT->S_init, tmRRT->S_goal, tmRRT->plan,
                                param_planner_timeout, param_rrt_horizon, tmRRT->path_len);
-        else if(param_planner_type == "bfs_rrt") //BFS+RRT
+            tmRRT->rviz_plot_plan(result);
+        }
+        else if(param_planner_type == "bfs_rrt") { //BFS+RRT
             tmRRT->plan_BFS_RRT(tmRRT->S_init, tmRRT->S_goal, tmRRT->plan,
                                 param_planner_timeout, param_rrt_horizon, tmRRT->path_len, param_bsf_timeout);
-        else{
+        }
+        else {
             // std::cout<<ansi::red<<"ERROR: planner of type "<<param_planner_type<<" does not exists"<<ansi::end<<std::endl;
             RCLCPP_ERROR(tmRRT->get_logger(), "ERROR: planner of type %s does not exists", param_planner_type.c_str());
             return 0;

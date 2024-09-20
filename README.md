@@ -1,4 +1,7 @@
 # tm_rrt testing package
+
+ROS2 version of TM-RRT method (modified by @fkfk21)
+
 This package has been designed to assess the performance of the TM-RRT (Task and Motion planner based on Rapidly-exploring Random Trees) considering several problem configurations in hospital-logistic scenario with a mobile robotic platform.
 
 The symbolic knowledge along with an example of problem formulation is available as Prolog file in the ```domains/``` folder.
@@ -10,7 +13,7 @@ For comparison pourposes a 2-layer planner based on simple BFS (symbolic) and RR
 The code is wrapped into a ROS node allowing fast launch and parameter setting. The output of the node is a table in the terminal showing the performance of the selected planner. In addition a 2D graphical representation of generated plans is available from the /image_plan topic while the list of the actions is published on the /tm_rrt_plan topic.
 
 ## Installation requirements
-Install and configure ROS from [here](http://wiki.ros.org/ROS/Installation)
+Install and configure ROS2 from [here (humble)](https://docs.ros.org/en/humble/Installation.html) 
 
 Install SWI-Prolog from repository:
 ```
@@ -22,7 +25,7 @@ sudo apt-get install swi-prolog
 ## Running instructions
 Run the test node using the following command:
 ```
-roslaunch tm_rrt tm_rrt.launch
+ros2 launch tm_rrt tm_rrt.launch.py
 ```
 
 ## Reference

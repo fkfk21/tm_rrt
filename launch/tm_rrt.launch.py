@@ -17,9 +17,13 @@ def generate_launch_description():
                 {'planner_type': 'tm_rrt'},  # TM-RRT
                 # {'planner_type': 'bfs_rrt'},  # BFS+RRT
                 {'debug': False},
-                # get task selector (best = 0, uniform = 1, montecarlo = 2)
-                {"task_selector": 0},
+                {"task_selector": 0},  # get task selector (best = 0, uniform = 1, montecarlo = 2)
                 {'number_of_runs': 100},
+
+                {'BFS_timeout': 2.0},  # timeout for the BFS (in seconds)
+                {'RRT_horizon': 5.0},  # horizon of the RRT (in meters)
+
+                # TM-RRT parameters
                 {'w_b': 1.0},
                 {'w_t': 5.0},
                 {'path_len': 0.9},
